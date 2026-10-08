@@ -1,0 +1,12 @@
+{
+  "name": "matmul_16x16x16_1r1w_verilog",
+  "module_name": "matmul_core",
+  "tb_module": "tb",
+  "language": "verilog",
+  "starting_point": "context/starting_point.sv",
+  "target_delay": 500,
+  "technology": "asap7",
+  "source": {
+    "origin": "own design: single-MAC 16x16x16 matrix multiplier behind a 1R/1W memory port"
+  }
+}

@@ -1,0 +1,46 @@
+Flexible-schedule 8x8 2-D IDCT with harness-owned memories, module name
+`jpeg_idct_2d_1r1w`. The module computes the EXACT fixed-point 2-D IDCT of the
+jpeg_idct_2d benchmarks (baseline JPEG, ultraembedded/core_jpeg semantics:
+AAN-style factorization, cosine constants x4096, ALL arithmetic in 32-bit
+signed wrap-around context, per-pass arithmetic shifts >>>11 and >>>15, and the
+1/sqrt(2) odd-part scaling `(x * 181) / 256` with a 32-bit wrapping multiply
+and SIGNED division truncating toward zero).
+
+Unlike the fixed-schedule jpeg_idct_2d benchmarks, the CYCLE SCHEDULE IS FREE:
+the testbench owns the coefficient and pixel memories and only checks the final
+memory content. The design chooses its own access order, buffering, and timing
+— and is scored on runtime-aware metrics (TB_CYCLES) and data movement
+(TB_READS / TB_WRITES), so faster schedules and better reuse win.
+
+Port contract (all synchronous to clk; rst is synchronous active-high):
+  rd_en   out 1     issue a read this cycle
+  rd_addr out 6     coefficient index 0..63 (row-major c[row][col], 16-bit signed)
+  rd_data in  16    valid EXACTLY 1 cycle after the cycle rd_en is high
+                    (SRAM-like registered read; back-to-back reads allowed)
+  wr_en   out 1     commit a result pixel this cycle (posted)
+  wr_addr out 6     pixel index 0..63, row-major
+  wr_data out 32    result value (full 32-bit fixed-point IDCT output)
+  done    out 1     sticky; assert after the last write is issued (no writes
+                    are allowed while done is high)
+
+One 8x8 block per run: the harness resets the design, waits for done (with a
+watchdog), and then checks every pixel of the output memory against the golden
+block. Reads may target any address any number of times; writes may arrive in
+any order; each pixel must be written (at least once) with the exact value.
+
+A working starting point is provided: `starting_point.py` (Spire)
+implements the SIMPLEST correct schedule — load all 64 coefficients into a
+register buffer (one read per cycle), then play the fixed 64-beat schedule into
+the bit-exact spire port of the core_jpeg pipeline, writing each pixel as it
+streams out (~219 cycles, 67 reads, 64 writes per block). NO load/compute
+overlap, NO reuse tricks — discovering better schedules is exactly what this
+benchmark measures. Running it (Spire mode) emits `design.v` with module
+`jpeg_idct_2d_1r1w`. Modify it. Sibling benchmark: `jpeg_idct_2d_1r1w_verilog`
+(identical tb.sv + vectors.dat, original-RTL-based starting point with the same
+schedule).
+
+NOTE on memories: the cost-evaluation synthesis flow targets a standard-cell
+library with no RAM macros, so every behavioral memory in this design (the
+transpose buffers, block_out, etc.) is inferred as a register array plus mux
+decode REGARDLESS of coding style. Optimizing that decode/mux logic is fair
+game; instantiating a hard RAM macro is not possible in this flow.

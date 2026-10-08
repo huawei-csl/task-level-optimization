@@ -1,0 +1,32 @@
+[project]
+name = "tasklevel"
+version = "0.1.0"
+description = "Task-level vs. equivalence verification for LLM-driven RTL optimization: benchmarks, study launcher, validation and analysis for the paper 'Beyond Equivalence'"
+readme = "README.md"
+license = "BSD-3-Clause-Clear"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = [
+    # the engine: agent loop + evaluation flow, pinned by commit (re-pin when the packaging branch merges)
+    "rtlscout @ git+https://github.com/huawei-csl/rtlscout.git@9e6bec0b0e2c748d8f49e7a81edf1876894bd351",
+    "pyyaml>=6.0",
+    "matplotlib>=3.5",
+    "numpy",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.urls]
+Repository = "https://github.com/huawei-csl/task-level-optimization"
+Engine = "https://github.com/huawei-csl/rtlscout"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["tasklevel*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

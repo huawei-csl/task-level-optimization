@@ -1,0 +1,11 @@
+# Extra MatMul task-level repetitions under the arp and movement objectives, to enlarge the design
+# pool that tasklevel.analysis.alpha_dial sweeps (it pools the arp, energy_objectives and
+# alpha_dial runs). Launch as many repetitions as wanted:
+#   python -m tasklevel.run_all --profile alpha_dial --new-run --repeat 2
+#   python -m tasklevel.analysis.alpha_dial
+tag: alpha_dial
+model: anthropic:claude-opus-5
+max_steps: 40
+parallel: 3
+jobs: [matmul_spire_task_arp, matmul_spire_task_marp1, matmul_spire_task_marp2]
+stages: [variants, study, validate, report]

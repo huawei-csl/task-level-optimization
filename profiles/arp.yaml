@@ -1,0 +1,10 @@
+# The main experiment: all six benchmarks, both tracks, ARP objective, Spire starting designs.
+# One invocation = one repetition of the 12 cells; the paper used three.
+# Launch:  python -m tasklevel.run_all --profile arp --new-run --repeat 3
+# Then:    python -m tasklevel.analysis.arp
+tag: arp
+model: anthropic:claude-opus-5
+max_steps: 40
+parallel: 12
+jobs: ["*_spire_*_arp"]
+stages: [variants, study, validate, report]

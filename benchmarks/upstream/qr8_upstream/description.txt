@@ -1,0 +1,19 @@
+8x8 fixed-point CORDIC Givens QR — the VERBATIM upstream implementation at
+its NATIVE interface, module name `qr` (logikbench `qr` at N=8, DW=16).
+
+This is a measurement benchmark for the upstream comparison (pricing
+the unmodified upstream under the study's ASAP7 ARP flow), not an
+agent-optimization target. The sources in starting_point.v are the
+five upstream files concatenated byte-identically with ZERO edits: N and DW
+are proper module parameters, set to 8/16 at testbench instantiation.
+
+Interface (native, no memory port): per case, the whole matrix A arrives on
+the 1024-bit a_in bus with a one-cycle start pulse; the design runs one
+full Givens rotation (vectoring + 8 parallel rotation CORDICs + gain
+multiply) per cycle and pulses done with R on the 1024-bit r_out bus.
+
+Workload: the same 15 cases as qr8_1r1w (vectors.dat byte-identical,
+stride 128/case: words 0..63 = A row-major, 64..127 = golden R row-major;
+element k of a_in/r_out at bits [16k +: 16]). The testbench resets between
+cases, meters reset-release -> done per case into TB_CYCLES, and
+content-checks all 64 R words per case.

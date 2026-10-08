@@ -1,0 +1,76 @@
+Flexible-schedule 32-carrier OFDM RECEIVER with harness-owned memories,
+module name `ofdm32_demod_core`. The module computes the EXACT fixed-point
+behavior of the logikbench `ofdm` receive chain at N=32 carriers (CP=8,
+DW=16): cyclic-prefix discard, forward FFT via a radix-2 DIF single-path
+delay-feedback (R2SDF) pipeline (LOG2N=5 stages, per-stage 1/2 scaling,
+Q1.15 twiddles from a 256-entry sine ROM), 1/N rescale and per-subcarrier
+Gray-coded square QAM demap (mod: 0=QPSK, 1=16-QAM, 2=64-QAM; mod=3 masks
+every bit, producing all-zero output). All fixed-point widths, truncations
+and the bit-reversed spectrum collection follow the upstream RTL.
+
+The input samples are a REAL received symbol: the upstream transmitter's
+output passed through a noisy channel (the noise is below the decision
+threshold, so the payload is recoverable — but the samples are NOT a clean
+transform of the output, and the golden outputs were captured from the
+upstream RX fed exactly these noisy samples).
+
+One JOB = one OFDM symbol, read from and written to harness-owned memories:
+input word 0 = mod (2 bits), input words 1..80 = the received time-domain
+symbol, N+CP = 40 complex samples, sample s stored as word 1+2s = I and
+word 2+2s = Q (two's-complement 16-bit; the first CP=8 samples are the
+cyclic prefix); output words 0..11 = the demodulated bits, word k holding
+out_bits[16k +: 16].
+
+The CYCLE SCHEDULE IS FREE: the testbench owns both memories and only checks
+the final output-memory content. The design chooses its own access order,
+buffering, and timing — and is scored on runtime-aware metrics (TB_CYCLES)
+and data movement (TB_READS / TB_WRITES), so faster schedules and better
+reuse win (e.g. the CP words need not be read at all).
+
+Port contract (all synchronous to clk; rst is async active-high):
+  rd_en   out 1     issue a read this cycle
+  rd_addr out 7     input word index 0..80
+  rd_data in  16    valid EXACTLY 1 cycle after the cycle rd_en is high
+                    (SRAM-like registered read; back-to-back reads allowed)
+  wr_en   out 1     commit a result word this cycle (posted)
+  wr_addr out 4     output word index 0..11
+  wr_data out 16    result value (out_bits[16k +: 16])
+  done    out 1     sticky; assert after the last write is issued (no writes
+                    are allowed while done is high)
+
+Correctness (all must hold, per case): every output word written to its
+golden value; done only after ALL 12 words are written; no write after done;
+reads/writes in range; done before the watchdog (4000 cycles/case). 21 cases
+(6x QPSK, 6x 16-QAM, 6x 64-QAM, 3x mod=3, random payloads). The harness
+prints TB_CYCLES / TB_READS / TB_WRITES then PASS or FAIL.
+
+DESIGN FREEDOM: any internal architecture is allowed. The starting point
+serializes everything — an 81-word load, the FFT pass (37+32 cycles of
+pipeline fill + stream), demap, then a 12-cycle store — with no overlap
+between phases and an FFT engine that processes one complex sample per
+cycle. Restructuring (different FFT scheduling, overlapping load/compute/
+store, skipping the CP reads, processing more than one sample per cycle) is
+allowed as long as the output memory ends up bit-exact. The cycle count is
+unconstrained except by the watchdog.
+
+STARTING POINT: `starting_point.py` is a working, correct Spire
+design — the RX half of the reference modem re-specialized to N=32 behind a
+thin 1R/1W wrapper FSM (~170 cycles/job). It compiles to Verilog via
+`to_verilog_file("design.v")` with top module `ofdm32_demod_core`. Start
+from it and optimize.
+
+EQUIVALENCE CONSTRAINT (it OVERRIDES the schedule freedom described above):
+this benchmark's testbench IS an I/O-level equivalence
+checker. Besides the normal data/protocol checks, it replays the same stimulus
+and compares your design's I/O behavior against a recorded trace of the
+provided starting point (`starting_point.py`): on every operating cycle the tuple {done, wr_data, wr_addr, wr_en, rd_addr, rd_en} must match the reference trace (`trace.dat`; bus fields are only compared on cycles where the reference asserts the corresponding enable -- idle-bus values are don't-care).
+Any deviation — a different cycle count, different access timing, a different
+`done`/`ready` time — is reported as TB_EQUIV_ERROR (first mismatches shown
+with cycle numbers) and FAILS the evaluation. Consequently TB_CYCLES
+/ TB_READS / TB_WRITES are pinned at the starting point's values by construction.
+
+Within that fixed I/O behavior the internal implementation is free:
+re-associating/factoring arithmetic, sharing subexpressions, restructuring mux
+trees, strength reduction, cheaper operator implementations, register renames
+or re-encodings — anything that keeps every observable output identical in
+every cycle. Only area and critical-path delay can improve — optimize those.

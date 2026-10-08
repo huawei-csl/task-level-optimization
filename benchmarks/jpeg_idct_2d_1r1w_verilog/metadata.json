@@ -1,0 +1,18 @@
+{
+  "name": "jpeg_idct_2d_1r1w_verilog",
+  "module_name": "jpeg_idct_2d_1r1w",
+  "tb_module": "tb",
+  "language": "verilog",
+  "starting_point": "context/starting_point.v",
+  "target_delay": 500,
+  "technology": "asap7",
+  "cost_metric": [
+    "energy_area_runtime_product",
+    "area_runtime_product"
+  ],
+  "source": {
+    "origin": "controller (ours) around the verbatim core_jpeg 2-D IDCT pipeline (Apache 2.0)",
+    "design": "flexible-schedule 8x8 2-D IDCT; tb owns coefficient/pixel memories (1r1w, registered read); TB_CYCLES/TB_READS/TB_WRITES scored",
+    "oracle": "the harness content-checks the output memory against the same golden blocks as jpeg_idct_2d (vectors.dat byte-identical); no CEC (schedule is free)"
+  }
+}

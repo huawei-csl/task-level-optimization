@@ -1,0 +1,22 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/huawei-csl/rtlscout:slim
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install (into the container's uv venv)
+        run: |
+          uv pip install -e ".[test]"
+      - name: Unit tests (no API calls, no agent runs)
+        run: |
+          python -m pytest -q tests
+      - name: Equivalence-track variants are reproducible
+        run: |
+          python -m tasklevel.variants --check

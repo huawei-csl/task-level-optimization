@@ -1,0 +1,9 @@
+# Plumbing check: one short agent run per track on the smallest benchmark.
+# Exercises variants -> baselines -> two agent runs -> rescores -> report end to end (~10 min).
+# Launch:  python -m tasklevel.run_all --profile smoke --new-run
+tag: smoke
+model: anthropic:claude-opus-5
+max_steps: 5
+parallel: 2
+jobs: [matmul_spire_equiv_arp, matmul_spire_task_arp]
+stages: [variants, study, report]

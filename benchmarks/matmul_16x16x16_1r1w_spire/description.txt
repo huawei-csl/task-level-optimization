@@ -1,0 +1,77 @@
+Sequential matrix-multiply core: C = A * B.
+
+Dimensions: M = K = N = 16. Operands A (M x K) and B (K x N) are 8-bit UNSIGNED.
+Result C (M x N) is 20-bit UNSIGNED, full precision (no truncation, no
+saturation): each element C[i][j] = sum over l of A[i][l]*B[l][j], whose maximum
+value 16*255*255 = 1,040,400 fits in 20 bits.
+
+This is NOT a fixed-latency block. You design the module `matmul_core`; the
+testbench is a fixed harness that models the input and result memories. The DUT
+issues its own reads and writes and decides how many cycles to take. Your job is
+to compute C correctly while minimizing the cost metric.
+
+PORT CONTRACT (module name MUST be `matmul_core`; all signals synchronous to
+`clk`; `rst` is SYNCHRONOUS and ACTIVE-HIGH):
+
+  input  clk
+  input  rst                    synchronous, active-high
+  output rd_en                  assert to issue a read this cycle
+  output rd_addr  [8:0]         flat element index of the read
+  input  rd_data  [7:0]         the value at rd_addr, valid EXACTLY ONE CYCLE
+                                after the cycle in which rd_en was asserted
+                                (SRAM-like registered read; back-to-back reads
+                                on consecutive cycles are allowed; the harness
+                                always serves — there is no stall/ready/valid)
+  output wr_en                  assert to commit one result element this cycle
+  output wr_addr  [7:0]         C element index of the write
+  output wr_data  [19:0]        result value (posted; committed on the clock
+                                edge; the harness never stalls a write)
+  output done                   assert when finished; sticky (stays high)
+
+ADDRESS MAPS (row-major, flat indices):
+  Reads: A occupies indices [0, 256):  A[i][l] is at  i*16 + l.
+         B occupies indices [256, 512): B[l][j] is at 256 + l*16 + j.
+  Writes: C[i][j] is at  i*16 + j, in [0, 256).
+
+RULES THE HARNESS ENFORCES:
+  - The read is registered: present rd_en + rd_addr in cycle T, and rd_data is
+    valid in cycle T+1. Plan your pipeline around this one-cycle skew.
+  - Reads may use any in-range address, any pattern, any number of repeats.
+  - Writes may be out of order; writing the same address twice is allowed
+    (last write wins). A write AFTER `done` has risen is an ERROR.
+  - `done` may rise only after EVERY C element has been written at least once
+    (the harness tracks a written-bitmask). Asserting `done` early fails.
+  - If `done` never rises, the harness times out and the run FAILS.
+
+COST METRICS (what you are optimizing — set with --cost-metric):
+  cycles   = simulation cycles the harness counts (reset release -> done),
+             summed across all test cases.
+  runtime  = cycles * achieved_critical_path_delay, where the delay is the
+             real critical path reported by static timing analysis (i.e. the
+             minimum achievable clock period). Lower cycles AND a faster clock
+             both help.
+  arp      = area * runtime  (= area * cycles * delay). The composite figure
+             of merit: inverse throughput-per-area for this fixed workload.
+  accesses = read + write memory accesses (data movement). Lower means more
+             on-chip operand reuse / buffering — re-fetching an operand is the
+             dominant cost in real accelerators (a fetch costs far more than a
+             MAC). Re-reading the same A/B elements inflates this; buffering and
+             reusing them shrinks it.
+  marp     = accesses * area * runtime (movement-weighted arp). Rewards reuse
+             AND penalizes large reuse buffers at once, so the optimum tiles and
+             reuses operands rather than either re-reading everything or
+             over-buffering.
+
+DESIGN FREEDOM: any internal architecture is allowed — any number of
+multipliers, any scheduling, any operand buffering or reuse, any tiling, any
+pipelining. The cycle count is unconstrained except by the harness watchdog.
+A design may re-read operands and buffer nothing (cycle-heavy, area-light),
+buffer everything, or anything in between; these trade cycles against area, and
+the cost metric decides the winner. The interesting architectures are yours to
+discover.
+
+STARTING POINT: `starting_point.py` is a working, correct Spire
+design — a single-MAC FSM that walks (i, j, l) with no buffering and no
+parallelism (~12.5k cycles per matrix). It compiles to Verilog via
+`m.to_verilog_file("design.v")` with top module `matmul_core`. Start from it and
+optimize.

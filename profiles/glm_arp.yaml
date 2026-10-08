@@ -1,0 +1,12 @@
+# The ARP experiment with a second model (GLM 5.2 via OpenRouter, high reasoning effort).
+# Needs OPENROUTER_API_KEY in the environment / .env. Same benchmarks, steps and tools as `arp`.
+# Launch:  python -m tasklevel.run_all --profile glm_arp --new-run --repeat 3
+# Then:    python -m tasklevel.analysis.arp --profiles glm_arp --suffix _glm
+tag: glm_arp
+model: openrouter:z-ai/glm-5.2
+max_steps: 40
+parallel: 12
+jobs: ["*_spire_*_arp"]
+env:
+  RTLSCOUT_REASONING_EFFORT: high
+stages: [variants, study, validate, report]

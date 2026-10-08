@@ -1,0 +1,23 @@
+32-carrier OFDM TRANSMITTER — the VERBATIM upstream implementation at its
+NATIVE interface, module name `ofdm_tx` (logikbench `ofdm` TX + `fft`,
+N=32, CP=8, DW=16).
+
+This is a measurement benchmark for the upstream comparison (pricing
+the unmodified upstream under the study's ASAP7 ARP flow), not an
+agent-optimization target. The sources in starting_point.v are the
+upstream files concatenated byte-identically except two RTLScout-marked
+one-line localparam corrections in ofdm_tx (LAT 70->37, LOG2N 6->$clog2(N))
+— hardcoded N=64 values upstream that are wrong at N=32; the golden vectors
+were captured from exactly this parameter-corrected RTL.
+
+Interface (native, no memory port): per symbol, one `in_valid` pulse with
+the full 192-bit payload `in_bits` and 2-bit `mod` (0=QPSK, 1=16-QAM,
+2=64-QAM, 3=all bits masked) applied together; the modulated symbol streams
+back as N+CP=40 complex samples on out_valid/out_last/out_r/out_i, cyclic
+prefix first, one sample per cycle.
+
+Workload: the same 21 jobs as ofdm32_mod_1r1w (vectors.dat byte-identical,
+stride 93/case: word 0 = mod, 1..12 = payload, 13..92 = golden I/Q sample
+words). The testbench resets between cases, meters reset-release ->
+out_last per case into TB_CYCLES, and content-checks all 80 streamed I/Q
+words per case.

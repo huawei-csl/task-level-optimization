@@ -1,0 +1,20 @@
+Full 8x8 2-D JPEG IDCT — the VERBATIM upstream implementation at its REAL
+native interface, module name `jpeg_idct_2d_upstream` (a marked pass-through
+wrapper renaming clk_i/rst_i; core = ultraembedded/core_jpeg `jpeg_idct` top
+with ALL its submodules byte-identical: jpeg_idct_ram (input stage) +
+ram_dp + fifo + idct_x + transpose(+ram) + idct_y).
+
+This is a measurement benchmark for the upstream comparison, not an
+agent-optimization target. Unlike the study's 1R/1W recast
+(which exposes the INTERNAL 4-words-per-beat interface below the input
+stage), this benchmark drives the upstream's true ingress: ONE 16-bit
+coefficient per cycle with 6-bit idx, eob on the last, accept backpressure
+honored; pixels stream out one per cycle with row-major idx.
+
+Workload: the same 323 blocks as the study jpeg benchmarks (vectors.dat
+identical to jpeg_idct_2d_verilog, whose goldens this same RTL generated).
+The testbench resets between blocks and sums reset-release -> 64th output
+into TB_CYCLES (the study TBs' per-case convention: no design gets
+cross-block pipelining credit). Measured: 219 cycles/block = 70,737 total —
+exactly the recast start's cycle count, i.e. the upstream's own native
+interface already serializes I/O like the 1R/1W contract.

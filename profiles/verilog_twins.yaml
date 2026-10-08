@@ -1,0 +1,10 @@
+# HDL-independence check: the ARP experiment with the Verilog starting designs. Same testbenches,
+# vectors, model, steps and tools as `arp`; only the starting design's language differs.
+# Launch:  python -m tasklevel.run_all --profile verilog_twins --new-run --repeat 3
+# Then:    python -m tasklevel.analysis.verilog_table
+tag: verilog_twins
+model: anthropic:claude-opus-5
+max_steps: 40
+parallel: 12
+jobs: ["*_verilog_*_arp"]
+stages: [variants, study, validate, report]

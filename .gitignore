@@ -1,0 +1,14 @@
+# run data: every run lives under data/<tag>_<datetime>/ (optionally a submodule of released data)
+data/
+runs/
+# build / tooling residue
+__pycache__/
+*.pyc
+obj_dir/
+.venv/
+*.egg-info/
+# validation stimuli are regenerated on demand (see validation/vector_hashes.json)
+validation/*/*_v2.dat
+validation/*/*_v2_*.dat
+validation/*/stim_v2.dat
+validation/*/_build*

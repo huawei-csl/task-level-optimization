@@ -1,0 +1,18 @@
+{
+  "name": "cv32e40p_alu_divh_upstream",
+  "module_name": "cv32e40p_alu",
+  "tb_module": "tb",
+  "language": "verilog",
+  "starting_point": "context/starting_point.sv",
+  "target_delay": 500,
+  "technology": "asap7",
+  "cost_metric": [
+    "area_runtime_product"
+  ],
+  "source": {
+    "origin": "openhwgroup/cv32e40p (alu + alu_div + popcnt + ff_one + pkg), Solderpad 0.51; the only edits are RTLScout-marked mechanical flattening changes required by the flow: the package import is removed, package constants are inlined, the enum operator port is represented as logic[6:0], and the four modules are concatenated; there are no logic edits and pristine upstream files: the upstream repository, see THIRD_PARTY_LICENSES.md",
+    "design": "the upstream's NATIVE per-operation enable/ready handshake -- identical to the interface every study cv32 design uses, so tb.sv and the div-heavy vectors are byte-identical copies from cv32e40p_alu_divh_spire",
+    "oracle": "same 20,000 div-heavy vectors, goldens captured from this same upstream RTL",
+    "purpose": "the upstream's own ARP under the study flow, for the upstream comparison; expected cycle-identical to the recast start (same schedule), reducing the row to area/period"
+  }
+}

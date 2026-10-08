@@ -1,0 +1,18 @@
+{
+  "name": "qr8_upstream",
+  "module_name": "qr",
+  "tb_module": "tb",
+  "language": "verilog",
+  "starting_point": "context/starting_point.v",
+  "target_delay": 500,
+  "technology": "asap7",
+  "cost_metric": [
+    "area_runtime_product"
+  ],
+  "source": {
+    "origin": "VERBATIM logikbench upstream CORDIC QR (qr.v + qr_array/boundary/cordic/internal.v concatenated); there are no edits, as stated in the RTLScout-marked provenance header; N/DW are module parameters set to 8/16 at TB instantiation",
+    "design": "upstream NATIVE interface: one start pulse with the whole matrix on the 1024-bit a_in bus, result on the 1024-bit r_out bus at the done pulse; one full Givens rotation per cycle; native schedule metered per case (reset release -> done), no memory port",
+    "oracle": "same 15 cases and goldens as qr8_1r1w (vectors.dat byte-identical, stride 128); TB checks all 64 R words per case at the done pulse",
+    "purpose": "the upstream's own ARP under the study flow, for the upstream comparison -- a measurement vehicle, not an agent-optimization benchmark"
+  }
+}

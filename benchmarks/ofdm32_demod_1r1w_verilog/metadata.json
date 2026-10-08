@@ -1,0 +1,19 @@
+{
+  "name": "ofdm32_demod_1r1w_verilog",
+  "module_name": "ofdm32_demod_core",
+  "tb_module": "tb",
+  "language": "verilog",
+  "starting_point": "context/starting_point.v",
+  "target_delay": 500,
+  "technology": "asap7",
+  "cost_metric": [
+    "area_runtime_product",
+    "access_area_runtime_product"
+  ],
+  "source": {
+    "origin": "Verilog twin of ofdm32_demod_1r1w: upstream logikbench RX (as in ofdm32_demod_upstream, same RTLScout-marked edits) behind a 1R/1W wrapper FSM",
+    "design": "flexible-schedule OFDM receiver (CP discard -> FFT -> rescale -> QAM demap) behind a 1r1w memory port; TB_CYCLES/TB_READS/TB_WRITES scored",
+    "oracle": "harness content-checks the 12 recovered-bit words against goldens captured from the upstream RTL's RX fed the TX tap stream through a seeded noisy channel (uniform +-64 LSB, verified below the decision threshold); samples-in/bits-out, so no copy shortcut exists; no CEC",
+    "hdl_twin": "ofdm32_demod_1r1w_spire"
+  }
+}

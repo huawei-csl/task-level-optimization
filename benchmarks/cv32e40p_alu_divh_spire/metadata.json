@@ -1,0 +1,21 @@
+{
+  "name": "cv32e40p_alu_divh_spire",
+  "module_name": "cv32e40p_alu",
+  "tb_module": "tb",
+  "language": "spirehdl",
+  "starting_point": "context/starting_point.py",
+  "source": {
+    "repo": "https://github.com/openhwgroup/cv32e40p",
+    "files": [
+      "rtl/cv32e40p_alu.sv",
+      "rtl/cv32e40p_popcnt.sv",
+      "rtl/cv32e40p_ff_one.sv",
+      "rtl/cv32e40p_alu_div.sv",
+      "rtl/include/cv32e40p_pkg.sv"
+    ],
+    "fetched": "2026-07-15",
+    "license": "Solderpad Hardware License v0.51",
+    "design": "DIV-HEAVY workload variant (15% div/rem, small divisors)",
+    "hdl_twin": "cv32e40p_alu_divh_verilog"
+  }
+}

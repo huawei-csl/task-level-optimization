@@ -1,0 +1,23 @@
+32-carrier OFDM RECEIVER — the VERBATIM upstream implementation at its
+NATIVE interface, module name `ofdm_rx` (logikbench `ofdm` RX + `fft`,
+N=32, CP=8, DW=16).
+
+This is a measurement benchmark for the upstream comparison (pricing
+the unmodified upstream under the study's ASAP7 ARP flow), not an
+agent-optimization target. The sources in starting_point.v are the
+upstream files concatenated byte-identically except two RTLScout-marked
+one-line localparam corrections in ofdm_rx (LAT 70->37, LOG2N 6->$clog2(N))
+— hardcoded N=64 values upstream that are wrong at N=32; the golden vectors
+were captured from exactly this parameter-corrected RTL.
+
+Interface (native, no memory port): per symbol, the noisy time-domain
+symbol streams in as N+CP=40 in_valid beats (cyclic prefix first, one
+complex sample per cycle on in_r/in_i, in_last on the final sample, 2-bit
+mod held stable for the case); the demapped 192-bit payload returns on a
+single out_valid beat as out_bits.
+
+Workload: the same 21 jobs as ofdm32_demod_1r1w (vectors.dat byte-identical,
+stride 93/case: word 0 = mod, 1..80 = noisy input sample words, 81..92 =
+golden demapped bit words). The testbench resets between cases, meters
+reset-release -> out_valid per case into TB_CYCLES, and content-checks the
+12 output words per case.

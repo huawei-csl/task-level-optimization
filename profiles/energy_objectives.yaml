@@ -1,0 +1,15 @@
+# Energy-directed objectives on MatMul (Spire), both tracks:
+#   marp1/marp2  movements^alpha x ARP with alpha = 1, 2 (counted memory-port accesses)
+#   earp1/earp2  measured-energy^k x ARP with k = 1, 2 (in-loop gate-level power; slower evaluations)
+#   energy       measured circuit energy alone
+# The power stage then measures every per-run best (and, with `power_population: true`, every
+# valid evaluation) by gate-level simulation. Needs the EDA tools (container).
+# Launch:  python -m tasklevel.run_all --profile energy_objectives --new-run
+# Then:    python -m tasklevel.analysis.energy
+tag: energy_objectives
+model: anthropic:claude-opus-5
+max_steps: 40
+parallel: 10
+jobs: ["matmul_spire_*_marp1", "matmul_spire_*_marp2", "matmul_spire_*_earp1", "matmul_spire_*_earp2", "matmul_spire_*_energy"]
+power_workers: 4
+stages: [variants, study, power, validate, report]

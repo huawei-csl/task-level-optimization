@@ -1,0 +1,18 @@
+{
+  "name": "ofdm32_demod_upstream",
+  "module_name": "ofdm_rx",
+  "tb_module": "tb",
+  "language": "verilog",
+  "starting_point": "context/starting_point.v",
+  "target_delay": 500,
+  "technology": "asap7",
+  "cost_metric": [
+    "area_runtime_product"
+  ],
+  "source": {
+    "origin": "logikbench upstream RX (ofdm_rx.v + fft.v concatenated) at N=32/CP=8; the only edits are two RTLScout-marked one-line localparam corrections (LAT 70->37 measured, LOG2N 6->$clog2(N)) for values hardcoded to N=64 upstream; the same corrections are applied to the recast design",
+    "design": "upstream NATIVE interface: the noisy symbol streamed in as 40 in_valid beats (I/Q parallel, mod held), demapped payload returned on one out_valid beat; native schedule metered per case (reset release -> out_valid), no memory port",
+    "oracle": "same 21 jobs and goldens as ofdm32_demod_1r1w (vectors.dat byte-identical, stride 93); TB checks the 12 golden out_bits words per case",
+    "purpose": "the upstream's own ARP under the study flow, for the upstream comparison -- a measurement vehicle, not an agent-optimization benchmark"
+  }
+}

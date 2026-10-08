@@ -1,0 +1,75 @@
+Flexible-schedule 8x8 fixed-point QR decomposition with harness-owned
+memories, module name `qr8_core`. The module computes the EXACT fixed-point
+QR triangularization of the logikbench `qr` benchmark at N=8, DW=16
+(A = Q*R by CORDIC Givens rotations): each sub-diagonal element is
+annihilated by a Givens rotation found by a vectoring CORDIC on the pivot
+pair and replayed by rotation CORDICs on the two affected rows, with M=16
+micro-rotations, F=8 fractional guard bits, all intermediate arithmetic in
+32-bit (IW) wrap-around context, and per-rotation gain compensation
+(v * 19898) >>> 15 in Q15. The (jr, ir) annihilation ORDER is part of the
+arithmetic contract (rotations do not commute in fixed point): jr = 0..N-2,
+ir = jr+1..N-1, exactly as the upstream RTL. Inputs are diagonally dominant
+with positive diagonals (first-quadrant pivots), per the design's own
+assumption. Golden R values were captured from the UNMODIFIED upstream
+logikbench RTL instantiated at N=8.
+
+The CYCLE SCHEDULE IS FREE: the testbench owns the A and R memories and only
+checks the final output-memory content. The design chooses its own access
+order, buffering, and timing — and is scored on runtime-aware metrics
+(TB_CYCLES) and data movement (TB_READS / TB_WRITES), so faster schedules and
+better reuse win.
+
+Port contract (all synchronous to clk; rst is synchronous active-high):
+  rd_en   out 1     issue a read this cycle
+  rd_addr out 6     A element index 0..63 (row-major, 16-bit signed)
+  rd_data in  16    valid EXACTLY 1 cycle after the cycle rd_en is high
+                    (SRAM-like registered read; back-to-back reads allowed)
+  wr_en   out 1     commit a result element this cycle (posted)
+  wr_addr out 6     R element index 0..63, row-major
+  wr_data out 16    result value ((W >> F) low 16 bits)
+  done    out 1     sticky; assert after the last write is issued (no writes
+                    are allowed while done is high)
+
+Correctness (all must hold, per case): every R element written to its golden
+value; done only after ALL 64 elements are written; no write after done;
+done before the watchdog (8000 cycles/case). 15 cases (identity, diagonal,
+upper-triangular, zero, small-integer, random diagonally dominant at several
+magnitudes up to full-scale int16, negative-heavy off-diagonals). The
+harness prints TB_CYCLES / TB_READS / TB_WRITES (feeding the runtime/energy
+metrics) then PASS or FAIL.
+
+DESIGN FREEDOM: any internal architecture is allowed — parallelize the CORDIC
+work at any granularity (chain several micro-rotations per cycle, rotate
+several columns at once — the upstream reference does all 8 columns x 16
+micro-rotations of a rotation in ONE cycle — or work on independent row pairs
+concurrently), pipeline the datapath, overlap load/compute/store, buffer or
+re-read operands. The cycle count is unconstrained except by the watchdog.
+Only the final R memory content is checked — but it must be BIT-EXACT, so the
+rotation order and fixed-point semantics above must be preserved wherever
+they affect R.
+
+STARTING POINT: `starting_point.v` is a working, correct Verilog design
+— the upstream logikbench QR core serialized to the DUMBEST schedule (RTLScout-
+marked edits of the upstream file, see its header): 64 loads (1/cycle), then
+per Givens rotation a 16-cycle vectoring pass on the pivot pair followed,
+column by column, by a 16-cycle replay plus one gain-compensation/write-back
+cycle (ONE CORDIC micro-rotation — a single shift-add pair — per cycle in a
+shared datapath), then 64 stores; ~3.4k cycles/case with everything
+serialized. Its module name is `qr8_core`. Start from it (copy it to your
+design file and edit) and optimize.
+
+EQUIVALENCE CONSTRAINT (it OVERRIDES the schedule freedom described above):
+this benchmark's testbench IS an I/O-level equivalence
+checker. Besides the normal data/protocol checks, it replays the same stimulus
+and compares your design's I/O behavior against a recorded trace of the
+provided starting point (`starting_point.v`): on every operating cycle the tuple {done, wr_data, wr_addr, wr_en, rd_addr, rd_en} must match the reference trace (`trace.dat`; bus fields are only compared on cycles where the reference asserts the corresponding enable -- idle-bus values are don't-care).
+Any deviation — a different cycle count, different access timing, a different
+`done`/`ready` time — is reported as TB_EQUIV_ERROR (first mismatches shown
+with cycle numbers) and FAILS the evaluation. Consequently TB_CYCLES
+/ TB_READS / TB_WRITES are pinned at the starting point's values by construction.
+
+Within that fixed I/O behavior the internal implementation is free:
+re-associating/factoring arithmetic, sharing subexpressions, restructuring mux
+trees, strength reduction, cheaper operator implementations, register renames
+or re-encodings — anything that keeps every observable output identical in
+every cycle. Only area and critical-path delay can improve — optimize those.
