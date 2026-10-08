@@ -127,13 +127,14 @@ def warn_unvalidated(cells: dict) -> None:
               "they count as eligible until a validation says otherwise")
 
 
-def meanstd(vals) -> str:
+def meanstd(vals, fmt: str = "{:.2f}") -> str:
+    """mean +- sample standard deviation (n-1), as the paper reports; a single value stands alone."""
     vals = [v for v in vals if v is not None]
     if not vals:
         return "--"
     if len(vals) == 1:
-        return f"{vals[0]:.2f}"
-    return f"{statistics.mean(vals):.2f}\\,\\pm\\,{statistics.pstdev(vals):.2f}"
+        return fmt.format(vals[0])
+    return f"{fmt.format(statistics.mean(vals))}\\,\\pm\\,{fmt.format(statistics.stdev(vals))}"
 
 
 def sci(v: float) -> str:

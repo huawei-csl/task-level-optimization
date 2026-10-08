@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import statistics
 from pathlib import Path
 
 from ..benches import BENCHES
@@ -155,13 +154,7 @@ def tables(profiles, out):
         row = {}
         for c in COLS:
             xs = [v[c] for v in vs if v[c] is not None]
-            if not xs:
-                row[c] = None
-            elif len(xs) == 1:
-                row[c] = xs[0]
-            else:
-                f = FMT[c] if c != "energy" else "{:.3g}"
-                row[c] = f"${f.format(statistics.mean(xs))}\\,\\pm\\,{f.format(statistics.stdev(xs))}$"
+            row[c] = None if not xs else xs[0] if len(xs) == 1 else f"${A.meanstd(xs, FMT[c] if c != 'energy' else '{:.3g}')}$"
         rows.append((ed, label, row))
     _emit("table_energy_meanstd", rows, out, "Table 7: mean +- sample standard deviation over the repetitions' per-run bests")
 

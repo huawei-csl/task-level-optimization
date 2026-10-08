@@ -46,7 +46,7 @@ def test_arp_tables_and_figure(two_runs):
     tex = (out / "table_arp.tex").read_text()
     assert tex.startswith("% generated") and "\\begin{tabular}" in tex and "MatMul $16^3$" in tex
     stats = (out / "table_arp_stats.md").read_text()
-    assert "| 0.75±0.05 | 2 |" in stats                                      # equiv per-run bests 0.8, 0.7
+    assert "| 0.75±0.07 | 2 |" in stats                                      # equiv per-run bests 0.8, 0.7
     assert (out / "fig_arp.png").exists() and (out / "fig_arp.pdf").exists()
 
 
@@ -62,7 +62,7 @@ def test_verilog_table_with_one_hdl_missing(two_runs):
     md = (A.OUT / "table_verilog.md").read_text()
     assert "| Spire |" in md and "| Verilog |" not in md
     tex = (A.OUT / "table_verilog.tex").read_text()
-    assert "tabular*" in tex and "0.80 {\\scriptsize $0.75\\,\\pm\\,0.05$}" in tex
+    assert "tabular*" in tex and "0.80 {\\scriptsize $0.75\\,\\pm\\,0.07$}" in tex
 
 
 def test_verilog_table_both_hdls(two_runs):
