@@ -76,22 +76,44 @@ def test_verilog_table_both_hdls(two_runs):
     assert "start ratio V/S | 1.05 |" in md
 
 
-def test_energy_table_and_population_figure(two_runs):
+def test_energy_tables_and_figures(data_root, capsys):
+    """Tables 4/6/7 and Figs 4a/4b from two repetitions with winner + population energies."""
     s = START["matmul_spire"]
-    jobs = {"matmul_spire_task_marp1": dict(metrics=scaled(s, 0.7, movements_rel=0.5)),
-            "matmul_spire_equiv_marp1": dict(metrics=scaled(s, 0.9, movements_rel=1.0), frozen=True)}
     base_adp = s["area"] * s["cycles"] * s["delay"]
-    power = {"baseline:matmul_spire": dict(status="ok", e_circuit_fj=100.0, adp=base_adp),
-             "winner:matmul_spire_task_marp1": dict(status="ok", e_circuit_fj=60.0, adp=0.7 * base_adp),
-             "eval:matmul_spire_task_marp1:eval_1": dict(status="ok", e_circuit_fj=90.0, adp=0.95 * base_adp)}
-    write_run("en_1", "energy_objectives", jobs, validation={j: dict(status="pass") for j in jobs}, power=power)
-    energy.build(["energy_objectives", "arp"])
-    md = (A.OUT / "table_energy.md").read_text()
-    assert "| arp | task | 0.50 |" in md                                   # from the arp runs
-    row = [l for l in md.splitlines() if l.startswith("| marp α=1 | task")][0]
-    # movements: reads 0.5x of 4096 + writes 256 -> (2048+256)/(4352) = 0.53 ; energy 0.6 ; edap 0.6*0.7
-    assert row == "| marp α=1 | task | 0.70 | 0.53 | 0.60 | 0.42 |"
-    assert (A.OUT / "fig_energy.png").exists()
+    stdout = "TB_CYCLES total=10000\nTB_READS total=4096\nTB_WRITES total=256\nTB_SUMMARY total=1 errors=0\nPASS\n"
+    for run, arp_rel, e_win, pts in (("arp_a", 0.5, 90.0, [(600.0, 110.0), (500.0, 90.0)]),     # (area, energy) of valid evals
+                                     ("arp_b", 0.6, 70.0, [(900.0, 60.0), (600.0, 70.0)])):
+        evals = [(True, dict(area=a, delay=500.0, cycles=10000.0), stdout) for a, _ in pts]
+        power = {"baseline:matmul_spire": dict(status="ok", e_circuit_fj=100.0, adp=base_adp),
+                 "winner:matmul_spire_task_arp": dict(status="ok", e_circuit_fj=e_win, adp=arp_rel * base_adp),
+                 "winner:matmul_spire_equiv_arp": dict(status="ok", e_circuit_fj=95.0, adp=0.9 * base_adp)}
+        for k, (_, e) in enumerate(pts, start=1):
+            power[f"eval:matmul_spire_task_arp:eval_{k}"] = dict(status="ok", e_circuit_fj=e, adp=1.0)
+        write_run(run, "arp", {"matmul_spire_task_arp": dict(metrics=scaled(s, arp_rel), evals=evals),
+                               "matmul_spire_equiv_arp": dict(metrics=scaled(s, 0.9), frozen=True),
+                               "jpeg_spire_task_arp": dict(metrics=scaled(START["jpeg_spire"], 0.4))},
+                  validation={"matmul_spire_task_arp": dict(status="pass"), "matmul_spire_equiv_arp": dict(status="pass"),
+                              "jpeg_spire_task_arp": dict(status="pass")}, power=power)
+    energy.build(["arp", "energy_objectives"])
+    out = capsys.readouterr().out
+    # Table 6: task-arp winner = lowest ARP (run arp_a, 0.5) with ITS energy 0.90
+    w = [l for l in (A.OUT / "table_energy_winners.md").read_text().splitlines() if l.startswith("| no | task-arp")][0]
+    assert w == "| no | task-arp | 500.0 | 500.0 | 10000 | 90 | 0.500 | 0.90 | 0.450 | 0.405 |"
+    # Table 4: column-wise minima over all four valid designs: area 500 (arp_a), energy 60 (arp_b eval_1), E rel 0.60
+    c = [l for l in (A.OUT / "table_energy_columnwise.md").read_text().splitlines() if l.startswith("| no | task-arp")][0]
+    assert c.startswith("| no | task-arp | 500.0 | 500.0 | 10000 | 60 | 0.500 | 0.60 |")
+    # Table 7: mean +- std over the two per-run bests (arp 0.5/0.6 -> 0.550 +- 0.071; E 0.90/0.70 -> 0.80 +- 0.14)
+    m = [l for l in (A.OUT / "table_energy_meanstd.md").read_text().splitlines() if l.startswith("| no | task-arp")][0]
+    assert "0.550±0.071" in m and "0.80±0.14" in m
+    tex = (A.OUT / "table_energy_columnwise.tex").read_text()
+    assert tex.splitlines()[0].startswith("% generated") and "\\textbf{500.0}" in tex
+    assert (A.OUT / "fig_energy.png").exists() and (A.OUT / "fig_energy_matmul_reps.png").exists()
+    assert "fig_energy skipped" not in out
+
+
+def test_energy_other_model_only_winner_figure(two_runs):
+    energy.build(["arp"], suffix="_glm")
+    assert not (A.OUT / "table_energy_winners.md").exists()          # suffix -> figure only
 
 
 def test_alpha_dial_pool_and_regimes(two_runs):
@@ -135,3 +157,34 @@ def test_upstream_table_from_sweep_and_arp_runs(two_runs):
     assert row.endswith("| 0.50 |"), row                 # task winner 0.4 x start / (0.8 x start) = 0.5
     assert "| matmul 16³ | --- |" in md                  # no upstream design for MatMul
     assert "jpeg idct-2d & $" in (A.OUT / "table_upstream.tex").read_text()
+
+
+def test_energy_cells_pick_the_winner_by_their_objective(data_root, capsys):
+    """Across repetitions, a marp/earp/energy cell's winner is the lowest objective, not the lowest ARP."""
+    s = START["matmul_spire"]
+    base_adp = s["area"] * s["cycles"] * s["delay"]
+    # rep 1: arp 0.5 with all movements; rep 2: arp 0.6 with 10% of the reads (far lower marp1)
+    write_run("en_a", "energy_objectives", {"matmul_spire_task_marp1": dict(metrics=scaled(s, 0.5)),
+                                            "matmul_spire_task_earp1": dict(metrics=scaled(s, 0.5)),
+                                            "matmul_spire_task_energy": dict(metrics=scaled(s, 0.5))},
+              validation={j: dict(status="pass") for j in ("matmul_spire_task_marp1", "matmul_spire_task_earp1", "matmul_spire_task_energy")},
+              power={"baseline:matmul_spire": dict(status="ok", e_circuit_fj=100.0, adp=base_adp),
+                     "winner:matmul_spire_task_earp1": dict(status="ok", e_circuit_fj=90.0, adp=0.5 * base_adp),
+                     "winner:matmul_spire_task_energy": dict(status="ok", e_circuit_fj=90.0, adp=0.5 * base_adp)})
+    write_run("en_b", "energy_objectives", {"matmul_spire_task_marp1": dict(metrics=scaled(s, 0.6, movements_rel=0.1)),
+                                            "matmul_spire_task_earp1": dict(metrics=scaled(s, 0.6)),
+                                            "matmul_spire_task_energy": dict(metrics=scaled(s, 0.6))},
+              validation={j: dict(status="pass") for j in ("matmul_spire_task_marp1", "matmul_spire_task_earp1", "matmul_spire_task_energy")},
+              power={"baseline:matmul_spire": dict(status="ok", e_circuit_fj=100.0, adp=base_adp),
+                     "winner:matmul_spire_task_earp1": dict(status="ok", e_circuit_fj=50.0, adp=0.6 * base_adp),
+                     "winner:matmul_spire_task_energy": dict(status="ok", e_circuit_fj=50.0, adp=0.6 * base_adp)})
+    cells = A.cells_for(["energy_objectives"], hdl="spire", objectives=("marp1", "earp1", "energy"))
+    assert cells[("matmul", "task", "marp1")]["winner"]["run"] == "en_b"      # 0.6 * 0.15 < 0.5 * 1.0
+    assert cells[("matmul", "task", "earp1")]["winner"]["run"] == "en_b"      # 50 * 0.6 < 90 * 0.5
+    assert cells[("matmul", "task", "energy")]["winner"]["run"] == "en_b"     # 50 < 90
+    # an arp cell still goes by arp; a missing power measurement falls back to arp with a note
+    write_run("en_c", "energy_objectives", {"matmul_spire_task_earp1": dict(metrics=scaled(s, 0.3))},
+              validation={"matmul_spire_task_earp1": dict(status="pass")})
+    cells = A.cells_for(["energy_objectives"], hdl="spire", objectives=("earp1",))
+    assert cells[("matmul", "task", "earp1")]["winner"]["run"] == "en_c"
+    assert "selecting the winner by ARP" in capsys.readouterr().out

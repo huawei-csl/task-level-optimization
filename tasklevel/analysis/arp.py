@@ -8,7 +8,8 @@ Outputs in data/analysis/:
     table_arp.{tex,md}        per benchmark: start ARP, equivalence and task-level winner (relative),
                               task/equivalence ratio, and the winner's area / period / cycles ratios
     table_arp_stats.{tex,md}  mean +- std of the per-run bests' relative ARP, with n, per cell
-    fig_arp.{png,pdf}         per benchmark: per-run bests (dots) and winner (bar) relative to start
+    fig_arp.{png,pdf}         per benchmark: per-run bests (dots) and winner (bar) relative to start (Fig. 2)
+    fig_decomp.{png,pdf}      each winner's area, period and cycles relative to the start (Fig. 3)
 """
 from __future__ import annotations
 
@@ -94,6 +95,27 @@ def build(profiles, hdl="spire", out=None, suffix=""):
                        Line2D([], [], marker="o", ls="", mfc="white", mec="black", ms=3.2, label="per-run best, not eligible")],
               fontsize=7, frameon=False, ncol=2, loc="upper center", bbox_to_anchor=(0.5, 1.22))
     A.savefig(fig, out, f"fig_arp{suffix}")
+
+    # Fig. 3: decomposition of each winner into area, period and cycles relative to the start
+    fig, axes = plt.subplots(1, 3, figsize=(1.3 * len(rows) + 2.5, 2.4), sharey=False)
+    for ax, (fld, name) in zip(axes, (("area", "area"), ("delay", "period"), ("cycles", "cycles"))):
+        x, ticks, labels = 0.0, [], []
+        for b, eq, tk in rows:
+            for arm, c in (("equiv", eq), ("task", tk)):
+                if c and c["winner"]:
+                    v = c["winner"]["metrics"][fld] / c["start"][fld]
+                    ax.bar([x], [v], width=0.8, color=A.COLORS[arm], zorder=2)
+                x += 1
+            ticks.append(x - 1.5)
+            labels.append(b.label)
+            x += 0.7
+        ax.axhline(1.0, color="#b7b6ae", lw=0.8, zorder=1)
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
+        ax.set_title(f"{name} / start", fontsize=8)
+        ax.set_yscale("log")
+    fig.tight_layout()
+    A.savefig(fig, out, f"fig_decomp{suffix}")
 
 
 def main():

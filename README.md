@@ -72,6 +72,30 @@ analysis modules read only complete runs from it and apply the eligibility gates
 
 One invocation of a profile is one repetition of its cells; `--repeat N` runs N in sequence.
 
+## Paper tables and figures
+
+Every table and figure of the paper is produced by one of the commands below from the runs
+registered in `data/manifest.json` (profiles in parentheses). Table 1 (benchmark interfaces) and
+Fig. 1 (the interface sketch) are static and have no generator.
+
+| paper | command | output in `data/analysis/` |
+|---|---|---|
+| Fig. 2a, Table 2 | `python -m tasklevel.analysis.arp` (`arp`) | `fig_arp.*`, `table_arp.*` |
+| Fig. 2b | `python -m tasklevel.analysis.arp --profiles glm_arp --suffix _glm` | `fig_arp_glm.*`, `table_arp_glm.*` |
+| Fig. 3 | `python -m tasklevel.analysis.arp` | `fig_decomp.*` |
+| Table 3 | `python -m tasklevel.upstream` (`arp` runs + `benchmarks/upstream/`) | `table_upstream.*`, `upstream_evals.json` |
+| Fig. 4a | `python -m tasklevel.analysis.energy` (`arp` runs after `tasklevel.power`) | `fig_energy.*` |
+| Fig. 4b | `python -m tasklevel.analysis.energy` | `fig_energy_matmul_reps.*` |
+| Table 4 | `python -m tasklevel.analysis.energy` (`energy_objectives` + `arp`, after `tasklevel.power --population`) | `table_energy_columnwise.*` |
+| Table 5, Fig. 5 | `python -m tasklevel.analysis.alpha_dial --stats` (`arp`, `energy_objectives`, `alpha_dial`) | `table_alpha_dial.*`, `fig_alpha_dial_stats.*` |
+| Fig. 6 | `python -m tasklevel.analysis.energy --profiles glm_arp --suffix _glm` | `fig_energy_glm.*` |
+| Table 6 | `python -m tasklevel.analysis.energy` | `table_energy_winners.*` |
+| Table 7 | `python -m tasklevel.analysis.energy` | `table_energy_meanstd.*` |
+| Table 8 | `python -m tasklevel.analysis.verilog_table` (`arp` + `verilog_twins`) | `table_verilog.*` |
+| repetition statistics (Sec. 5) | `python -m tasklevel.analysis.arp` | `table_arp_stats.*` |
+
+Per-run reports (`data/<run>/REPORT.md`) summarize one run and are not paper items.
+
 ## Engine and tools
 
 The agent loop and the evaluation flow are the `rtlscout` package, pinned by commit in

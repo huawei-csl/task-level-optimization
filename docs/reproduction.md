@@ -48,6 +48,9 @@ command without `--new-run`; completed jobs are skipped.
 `data/<run>/REPORT.md` is the per-run report; `python -m tasklevel.analysis.arp` combines the
 complete runs of the profile (`data/manifest.json`) into winners, decomposition and statistics.
 
+Which command produces which table or figure of the paper is listed in the README
+("Paper tables and figures"); every analysis reads only complete runs from `data/manifest.json`.
+
 ## 3. Upstream comparison
 
 ```bash

@@ -9,10 +9,11 @@ is selected; contiguous alpha ranges that select the same design are its *regime
     python -m tasklevel.analysis.alpha_dial --arms task equiv --stats
 
 Outputs in data/analysis/:
-    table_alpha_dial.{tex,md}  one row per regime: alpha range, the design's relative movements,
+    table_alpha_dial.{tex,md}  (Table 5) one row per regime: alpha range, the design's relative movements,
                                ARP, area, period, cycles (and with --stats its flip-flop/logic cell
                                counts from a yosys generic-cell pass), its source job and evaluation
     fig_alpha_dial.{png,pdf}   selected design's relative movements and ARP against alpha (step plot)
+    fig_alpha_dial_stats.{png,pdf}  with --stats: flip-flop and logic cell counts against alpha (Fig. 5)
     alpha_dial_pool.json       the pooled points
 """
 from __future__ import annotations
@@ -129,6 +130,7 @@ def build(profiles, arms=("task",), stats=False, out=None):
         mv, ar = (p["reads"] + p["writes"]) / m0, A.arp(p) / a0
         dec = (p["area"] / start["area"], p["delay"] / start["delay"], p["cycles"] / start["cycles"])
         st = logic_stats(Path(p["design"])) if stats else {}
+        rg["stats"] = st
         rng = f"{rg['a_lo']:.2f}--{rg['a_hi']:.2f}" if rg["a_lo"] != rg["a_hi"] else f"{rg['a_lo']:.2f}"
         tex.append(f"{rng} & {mv:.2f} & {ar:.2f} & " + " & ".join(f"{d:.2f}" for d in dec)
                    + (f" & {st.get('ff', '--')} & {st.get('logic', '--')}" if stats else "") + " \\\\")
@@ -155,6 +157,25 @@ def build(profiles, arms=("task",), stats=False, out=None):
     ax.set_xlim(0, 3)
     ax.legend(fontsize=7, frameon=False)
     A.savefig(fig, out, "fig_alpha_dial")
+
+    if stats and all(rg["stats"].get("ff") is not None for rg in regimes):
+        # Fig. 5: flip-flop and logic cell counts of the selected design against alpha
+        fig, ax = plt.subplots(figsize=(4.2, 2.6))
+        ax2 = ax.twinx()
+        xs = []
+        ffs, lgs = [], []
+        for rg in regimes:
+            xs += [rg["a_lo"], rg["a_hi"] + 0.01]
+            ffs += [rg["stats"]["ff"]] * 2
+            lgs += [rg["stats"]["logic"]] * 2
+        ax.plot(xs, ffs, color="#2a78d6", lw=1.6, label="flip-flops")
+        ax2.plot(xs, lgs, color="#eb6834", lw=1.6, label="logic cells")
+        for rg in regimes[1:]:
+            ax.axvline(rg["a_lo"], color="#d8d7cf", lw=0.7, zorder=0)
+        ax.set_xlabel("movement exponent α"); ax.set_xlim(0, 3)
+        ax.set_ylabel("flip-flops", color="#2a78d6"); ax2.set_ylabel("logic cells", color="#eb6834")
+        ax2.spines["right"].set_visible(True)
+        A.savefig(fig, out, "fig_alpha_dial_stats")
 
 
 def main():

@@ -89,10 +89,35 @@ def cells_for(profiles, hdl: str | None = None, objectives=("arp",), status="com
             cell["reps"].append(rep)
     for cell in cells.values():
         ok = [x for x in cell["reps"] if eligible(x)]
-        cell["winner"] = min(ok, key=lambda x: x["arp"]) if ok else None
-        cell["best_arp"] = cell["winner"]["arp"] if ok else None
+        scored = [(objective_value(x, cell["objective"]), x) for x in ok]
+        if any(v is None for v, _ in scored):
+            print(f"note: {cell['bench']} {cell['arm']} {cell['objective']}: no measured energy for "
+                  f"{[x['run'] for v, x in scored if v is None]} (python -m tasklevel.power --run <run>); "
+                  "selecting the winner by ARP instead")
+            scored = [(x["arp"], x) for x in ok]
+        cell["winner"] = min(scored, key=lambda t: t[0])[1] if scored else None
+        cell["best_arp"] = cell["winner"]["arp"] if scored else None
         cell["unvalidated"] = [x["run"] for x in cell["reps"] if x["validated"] is None]
     return cells
+
+
+def objective_value(rep: dict, objective: str) -> float | None:
+    """The in-loop objective of a rescored design, for picking a cell's winner across repetitions:
+    arp; marpN = movements^N x arp; earpN = energy^N x arp; energy. None if a needed measurement is missing."""
+    a = rep["arp"]
+    if objective == "arp":
+        return a
+    if objective.startswith("marp"):
+        m = movements(rep["metrics"])
+        return None if m is None else m ** float(objective[4:]) * a
+    e = rep.get("energy")
+    if e is None:
+        return None
+    if objective.startswith("earp"):
+        return e ** float(objective[4:]) * a
+    if objective == "energy":
+        return e
+    raise ValueError(objective)
 
 
 def warn_unvalidated(cells: dict) -> None:
