@@ -185,7 +185,8 @@ def control(bench: str = "matmul") -> dict:
     start = tdir / meta["starting_point"]
     good = validate_design(bench, start, "verilog")
     src = start.read_text()
-    bad_src = re.sub(r"\bwr_data\s*<=\s*", "wr_data <= 1 ^ ", src, count=1)   # corrupt the result bus once
+    # flip bit 0 of the result bus at its (continuous or non-blocking) assignment
+    bad_src = re.sub(r"\bwr_data\s*(<=|=(?!=))\s*", r"wr_data \1 1 ^ ", src, count=1)
     if bad_src == src:
         raise RuntimeError("could not construct the corrupted control design")
     with tempfile.TemporaryDirectory(prefix="tl_ctrl_") as td:
