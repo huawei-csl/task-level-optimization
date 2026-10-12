@@ -23,7 +23,7 @@ data; `data/` is where your runs go.
 git clone https://github.com/huawei-csl/task-level-optimization && cd task-level-optimization
 docker run -it --rm -v "$PWD":/work -w /work ghcr.io/huawei-csl/rtlscout:slim bash
 uv pip install -e ".[test]"
-export ANTHROPIC_API_KEY=...
+cp .env.template .env && vi .env                          # provider keys (or: export ANTHROPIC_API_KEY=...)
 python -m pytest -q tests                                  # offline checks
 python -m tasklevel.run_all --profile smoke --new-run      # one short agent run, end to end
 python -m tasklevel.run_all --profile arp --new-run --repeat 3

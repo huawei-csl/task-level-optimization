@@ -12,3 +12,5 @@ validation/*/*_v2.dat
 validation/*/*_v2_*.dat
 validation/*/stim_v2.dat
 validation/*/_build*
+# provider API keys (optional; see docs/reproduction.md)
+.env

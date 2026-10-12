@@ -8,7 +8,7 @@ engine's Python environment). Agent runs call a hosted LLM; set the provider key
 ```bash
 docker run -it --rm -v "$PWD":/work -w /work ghcr.io/huawei-csl/rtlscout:slim bash
 uv pip install -e ".[test]"             # the container's venv has uv, no pip
-export ANTHROPIC_API_KEY=...            # or RTLSCOUT_ENV_FILE=/path/to/.env with the key inside
+cp .env.template .env && vi .env        # provider keys; .env is gitignored and loaded from the repo root
 python -m pytest -q tests               # no API calls; ~1 min (set TASKLEVEL_SLOW=1 for the tb_v2 control)
 python -m tasklevel.variants --check    # the released _equiv variants reproduce byte for byte
 ```
@@ -17,6 +17,10 @@ Spire runs quote the spire-hdl documentation in the agent's prompt. The PyPI rel
 does not ship it; if the engine stops with "Spire HDL prompts quote the spire-hdl documentation",
 clone [spire-hdl](https://github.com/huawei-csl/spire-hdl) at the installed version and set
 `RTLSCOUT_SPIRE_HDL_DIR=/path/to/spire-hdl` (later spire-hdl releases make this unnecessary).
+
+The engine reads the keys from `.env` in the directory it is started from (as the RTLScout repository
+does), or from the file named by `RTLSCOUT_ENV_FILE`; exporting `ANTHROPIC_API_KEY` /
+`OPENROUTER_API_KEY` in the shell works as well and takes precedence.
 
 Model ids are `<provider>:<model>`; the paper's runs used `anthropic:claude-opus-5` with 40 steps.
 `glm_arp` uses `openrouter:z-ai/glm-5.2` (`OPENROUTER_API_KEY`).
