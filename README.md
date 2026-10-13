@@ -103,6 +103,16 @@ The agent loop and the evaluation flow are the `rtlscout` package, pinned by com
 `ghcr.io/huawei-csl/rtlscout:slim` carries Yosys, ABC, OpenROAD/OpenSTA, Verilator and the
 ASAP7 PDK. Outside the container the offline tests run, the agent and measurement stages do not.
 
+## Status
+
+This is research code accompanying the paper, released so that the study can be rerun. It is a
+cleaned-up and partly rewritten version of the scripts the experiments were run with, not a verbatim
+copy: the benchmarks, testbenches, vectors, equivalence traces and the pinned engine commit are
+those of the study, while the launcher and the analysis were consolidated (profiles, run manifest,
+one package) and renamed. The code is provided as-is, without warranty or support commitment; agent
+runs are stochastic and depend on hosted models that change over time, so reproduced numbers will
+differ from the paper's. Issues and pull requests are welcome.
+
 ## License
 
 BSD-3-Clause-Clear (see `LICENSE`). Benchmark designs derived from other projects keep their

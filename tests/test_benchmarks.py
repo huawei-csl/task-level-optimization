@@ -96,3 +96,15 @@ def test_no_internal_references_in_released_text():
                 if pat.search(line):
                     hits.append(f"{f.relative_to(C.REPO)}:{i}")
     assert not hits, hits[:10]
+
+
+def test_third_party_license_texts_are_shipped():
+    lic = C.REPO / "LICENSES"
+    expect = {"Apache-2.0.txt": "Apache License", "SHL-0.51.txt": "SOLDERPAD HARDWARE LICENSE version 0.51",
+              "MIT-LogikBench.txt": "Copyright (c) 2025 Zero ASIC Corporation"}
+    assert {p.name for p in lic.iterdir()} == set(expect)
+    for name, marker in expect.items():
+        assert marker in (lic / name).read_text()
+    tp = (C.REPO / "THIRD_PARTY_LICENSES.md").read_text()
+    for name in expect:
+        assert f"LICENSES/{name}" in tp
