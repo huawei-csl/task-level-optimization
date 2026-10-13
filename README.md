@@ -87,7 +87,7 @@ Fig. 1 (the interface sketch) are static and have no generator.
 | Fig. 4a | `python -m tasklevel.analysis.energy` (`arp` runs after `tasklevel.power`) | `fig_energy.*` |
 | Fig. 4b | `python -m tasklevel.analysis.energy` | `fig_energy_matmul_reps.*` |
 | Table 4 | `python -m tasklevel.analysis.energy` (`energy_objectives` + `arp`, after `tasklevel.power --population`) | `table_energy_columnwise.*` |
-| Table 5, Fig. 5 | `python -m tasklevel.analysis.alpha_dial --stats` (`arp`, `energy_objectives`, `alpha_dial`) | `table_alpha_dial.*`, `fig_alpha_dial_stats.*` |
+| Table 5, Fig. 5 | no extraction script currently provided (`tasklevel.analysis.alpha_dial` implements the α sweep over the pooled MatMul designs, not the paper's table and figure layout) | `table_alpha_dial.*`, `fig_alpha_dial.*` |
 | Fig. 6 | `python -m tasklevel.analysis.energy --profiles glm_arp --suffix _glm` | `fig_energy_glm.*` |
 | Table 6 | `python -m tasklevel.analysis.energy` | `table_energy_winners.*` |
 | Table 7 | `python -m tasklevel.analysis.energy` | `table_energy_meanstd.*` |
