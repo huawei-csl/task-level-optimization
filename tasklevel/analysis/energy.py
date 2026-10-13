@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 from pathlib import Path
 
 from ..benches import BENCHES
@@ -96,24 +97,48 @@ def _rows(pool_or_reps):
                                                  for obj in ORDER for arm in ("equiv", "task") if (arm, obj) in pool_or_reps]
 
 
+def _fmt(c, x):
+    """tex / md rendering of one number; energy as mantissa x 10^e."""
+    if c == "energy":
+        mant, ex = ("%.1e" % x).split("e")
+        return mant, int(ex), FMT[c].format(x)
+    return FMT[c].format(x), None, FMT[c].format(x)
+
+
 def _emit(stem, rows, out, caption_note):
-    """rows: [(energy_directed, label, {col: value|None|str})]; bold column minima in tex."""
-    mins = {c: min((v[c] for _, _, v in rows if isinstance(v[c], (int, float))), default=None) for c in COLS}
+    """rows: [(energy_directed, label, {col: value | None | (mean, std)})]; column minima (of the
+    value, or of the mean for mean +- std cells) are bold in tex; the energy exponent is shared
+    by mean and std as in the paper (X.X{+-Y.Y}x10^e)."""
+    def key(x):
+        return x[0] if isinstance(x, tuple) else x
+    mins = {c: min((key(v[c]) for _, _, v in rows if v[c] is not None), default=None) for c in COLS}
     tex, md = list(TEX_HDR), [MD_HDR, "|---|---|---|---|---|---|---|---|---|---|"]
     for ed, label, v in rows:
         cells_t, cells_m = [], []
         for c in COLS:
             x = v[c]
-            if isinstance(x, str):
-                cells_t.append(x); cells_m.append(x.replace("\\,\\pm\\,", "±").replace("$", ""))
-            elif x is None:
+            if x is None:
                 cells_t.append("--"); cells_m.append("--")
+                continue
+            bold = key(x) == mins[c]
+            if isinstance(x, tuple):
+                mean, std = x
+                m_t, ex, m_m = _fmt(c, mean)
+                if ex is not None:
+                    s_t = "%.1f" % (std / 10 ** ex)
+                    s_m = FMT[c].format(std)
+                    body = (f"\\mathbf{{{m_t}}}" if bold else m_t) + f"{{\\scriptstyle\\pm{s_t}}}{{\\times}}10^{{{ex}}}"
+                else:
+                    s_t = s_m = FMT[c].format(std)
+                    body = (f"\\mathbf{{{m_t}}}" if bold else m_t) + f"{{\\scriptstyle\\pm{s_t}}}"
+                cells_t.append(f"${body}$"); cells_m.append(f"{m_m}±{s_m}")
             else:
-                s = FMT[c].format(x)
-                if c == "energy":
-                    mant, ex = ("%.1e" % x).split("e"); s = f"${mant}{{\\times}}10^{{{int(ex)}}}$"
-                cells_t.append(f"\\textbf{{{s}}}" if x == mins[c] else s); cells_m.append(FMT[c].format(x))
-        tl = label.replace("equiv-", "equiv-").replace("arp", "\\arp{}").replace("e\\arp{}1", "\\earp{}").replace("e\\arp{}2", "$\\earp_2$") \
+                m_t, ex, m_m = _fmt(c, x)
+                body = f"{m_t}{{\\times}}10^{{{ex}}}" if ex is not None else m_t
+                body = f"$\\mathbf{{{m_t}}}{{\\times}}10^{{{ex}}}$" if (bold and ex is not None) else \
+                       f"${body}$" if ex is not None else (f"\\textbf{{{body}}}" if bold else body)
+                cells_t.append(body); cells_m.append(m_m)
+        tl = label.replace("arp", "\\arp{}").replace("e\\arp{}1", "\\earp{}").replace("e\\arp{}2", "$\\earp_2$") \
                   .replace("m\\arp{}1", "$\\marp_1$").replace("m\\arp{}2", "$\\marp_2$").replace("-energy", "-$E$")
         tex.append(f"{ed} & {tl} & " + " & ".join(cells_t) + " \\\\")
         md.append(f"| {ed} | {label} | " + " | ".join(cells_m) + " |")
@@ -154,7 +179,7 @@ def tables(profiles, out):
         row = {}
         for c in COLS:
             xs = [v[c] for v in vs if v[c] is not None]
-            row[c] = None if not xs else xs[0] if len(xs) == 1 else f"${A.meanstd(xs, FMT[c] if c != 'energy' else '{:.3g}')}$"
+            row[c] = None if not xs else xs[0] if len(xs) == 1 else (statistics.mean(xs), statistics.stdev(xs))
         rows.append((ed, label, row))
     _emit("table_energy_meanstd", rows, out, "Table 7: mean +- sample standard deviation over the repetitions' per-run bests")
 
