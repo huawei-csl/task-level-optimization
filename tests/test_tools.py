@@ -68,3 +68,15 @@ def test_matmul_start_access_count_is_the_arithmetic_count():
         reads = int(re.search(r"TB_READS total=(\d+)", r.stdout).group(1))
         writes = int(re.search(r"TB_WRITES total=(\d+)", r.stdout).group(1))
         assert writes == cases * 16 * 16 and reads == cases * 2 * 16 ** 3
+
+
+@pytest.mark.skipif(shutil.which("yosys") is None, reason="yosys not installed")
+def test_logic_stats_counts_ffs_and_multipliers(tmp_path):
+    from tasklevel.analysis.alpha_dial import logic_stats
+    v = tmp_path / "m.v"
+    v.write_text("""module m(input clk, input [7:0] a, b, output reg [15:0] p, output reg [3:0] q);
+  always @(posedge clk) begin p <= a * b; q <= q + 1'b1; end
+endmodule
+""")
+    st = logic_stats(v)
+    assert st.get("ff") == 20 and st.get("mul") == 1 and st.get("logic", 0) >= 2, st

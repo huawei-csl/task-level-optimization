@@ -11,7 +11,7 @@ is selected; contiguous alpha ranges that select the same design are its *regime
 Outputs in data/analysis/:
     table_alpha_dial.{tex,md}  (Table 5) one row per regime: alpha range, the design's relative movements,
                                ARP, area, period, cycles (and with --stats its flip-flop/logic cell
-                               counts from a yosys generic-cell pass), its source job and evaluation
+                               multiplier and other cell counts from a yosys generic-cell pass), its source job and evaluation
     fig_alpha_dial.{png,pdf}   selected design's relative movements and ARP against alpha (step plot)
     fig_alpha_dial_stats.{png,pdf}  with --stats: flip-flop and logic cell counts against alpha (Fig. 5)
     alpha_dial_pool.json       the pooled points
@@ -34,7 +34,10 @@ from . import _common as A
 RE_RW = re.compile(r"TB_READS total=(\d+)[\s\S]*?TB_WRITES total=(\d+)")
 
 
-def pool(profiles, arms=("task",)) -> tuple[dict, list[dict]]:
+POOL_OBJECTIVES = ("arp", "marp1", "marp2")
+
+
+def pool(profiles, arms=("task",), objectives=POOL_OBJECTIVES) -> tuple[dict, list[dict]]:
     """(start metrics, points). A point: area, delay, cycles, reads, writes, job, run, eval, design."""
     start, pts, seen = None, [], set()
     for r in A.runs(profiles):
@@ -44,7 +47,8 @@ def pool(profiles, arms=("task",)) -> tuple[dict, list[dict]]:
             start = base["metrics"]
         for job, rec in sr["runs"].items():
             spec = JOBS.get(job)
-            if not spec or spec["bench"] != "matmul" or spec["hdl"] != "spire" or spec["arm"] not in arms:
+            if not spec or spec["bench"] != "matmul" or spec["hdl"] != "spire" or spec["arm"] not in arms \
+                    or spec["objective"] not in objectives:
                 continue
             if not rec.get("run_dir"):
                 continue
@@ -87,26 +91,34 @@ def sweep(start: dict, pts: list[dict], alphas) -> list[dict]:
 
 
 def logic_stats(design: Path) -> dict:
-    """Flip-flop and logic cell counts of a design after a generic yosys pass (proc, flatten, simplemap)."""
+    """Flip-flop, multiplier and other cell counts after a generic yosys pass (proc, flatten,
+    simplemap of the FFs; no technology mapping). `design` is a Spire .py (compiled first) or Verilog."""
     if shutil.which("yosys") is None:
         return {}
     with tempfile.TemporaryDirectory(prefix="tl_stats_") as td:
         ws = Path(td)
-        from rtlscout.evaluation import _compile_spirehdl, SPIREHDL_VERILOG_OUTPUT
-        for py in design.parent.glob("*.py"):
-            shutil.copy2(py, ws / py.name)
-        err, _ = _compile_spirehdl(ws, design.name)
-        if err:
-            return {"error": err[:200]}
-        script = f"read_verilog -sv {ws / SPIREHDL_VERILOG_OUTPUT}; hierarchy -auto-top; proc; flatten; opt_clean; simplemap t:$*dff*; stat -json"
+        if design.suffix == ".py":
+            from rtlscout.evaluation import _compile_spirehdl, SPIREHDL_VERILOG_OUTPUT
+            for py in design.parent.glob("*.py"):
+                shutil.copy2(py, ws / py.name)
+            err, _ = _compile_spirehdl(ws, design.name)
+            if err:
+                return {"error": err[:200]}
+            rtl = ws / SPIREHDL_VERILOG_OUTPUT
+        else:
+            rtl = design
+        out = ws / "stat.json"
+        # `tee -o` writes the JSON to a file: yosys' stdout is its log, which -q would silence
+        script = (f"read_verilog -sv {rtl}; hierarchy -auto-top; proc; flatten; opt_clean; "
+                  f"simplemap t:$*dff*; tee -q -o {out} stat -json")
         r = subprocess.run(["yosys", "-q", "-p", script], capture_output=True, text=True, timeout=600)
-        i = r.stdout.find("{")
-        if i < 0:
-            return {"error": r.stderr[-200:]}
-        st = json.loads(r.stdout[i:])
+        if r.returncode != 0 or not out.exists():
+            return {"error": (r.stderr or r.stdout)[-200:]}
+        st = json.loads(out.read_text())
         cells = (st.get("design") or {}).get("num_cells_by_type") or {}
-        ff = sum(n for t, n in cells.items() if "dff" in t.lower() or "dlatch" in t.lower())
-        return dict(ff=ff, logic=sum(cells.values()) - ff)
+        ff = sum(n for t, n in cells.items() if re.match(r"\$_(S?DFF|DLATCH)", t))
+        mul = sum(n for t, n in cells.items() if t == "$mul")
+        return dict(ff=ff, mul=mul, logic=sum(cells.values()) - ff)
 
 
 def build(profiles, arms=("task",), stats=False, out=None):
@@ -121,10 +133,10 @@ def build(profiles, arms=("task",), stats=False, out=None):
     regimes = sweep(start, pts, alphas)
     m0 = start["reads"] + start["writes"]
     a0 = A.arp(start)
-    tex = ["\\begin{tabular}{crrrrrr" + ("rr" if stats else "") + "}", "\\toprule",
-           "$\\alpha$ range & movements & \\arp & area & period & cycles" + (" & FFs & logic" if stats else "") + " \\\\", "\\midrule"]
-    md = ["| α range | movements rel | arp rel | area rel | period rel | cycles rel |" + (" FFs | logic |" if stats else "") + " source |",
-          "|---|---|---|---|---|---|" + ("---|---|" if stats else "") + "---|"]
+    tex = ["\\begin{tabular}{crrrrrr" + ("rrr" if stats else "") + "}", "\\toprule",
+           "$\\alpha$ range & movements & \\arp & area & period & cycles" + (" & FFs & mult. & logic" if stats else "") + " \\\\", "\\midrule"]
+    md = ["| α range | movements rel | arp rel | area rel | period rel | cycles rel |" + (" FFs | mult. | logic |" if stats else "") + " source |",
+          "|---|---|---|---|---|---|" + ("---|---|---|" if stats else "") + "---|"]
     for rg in regimes:
         p = rg["point"]
         mv, ar = (p["reads"] + p["writes"]) / m0, A.arp(p) / a0
@@ -133,9 +145,9 @@ def build(profiles, arms=("task",), stats=False, out=None):
         rg["stats"] = st
         rng = f"{rg['a_lo']:.2f}--{rg['a_hi']:.2f}" if rg["a_lo"] != rg["a_hi"] else f"{rg['a_lo']:.2f}"
         tex.append(f"{rng} & {mv:.2f} & {ar:.2f} & " + " & ".join(f"{d:.2f}" for d in dec)
-                   + (f" & {st.get('ff', '--')} & {st.get('logic', '--')}" if stats else "") + " \\\\")
+                   + (f" & {st.get('ff', '--')} & {st.get('mul', '--')} & {st.get('logic', '--')}" if stats else "") + " \\\\")
         md.append(f"| {rng} | {mv:.2f} | {ar:.2f} | " + " | ".join(f"{d:.2f}" for d in dec) + " |"
-                  + (f" {st.get('ff', '--')} | {st.get('logic', '--')} |" if stats else "") + f" {p['job']} {p['eval']} ({p['run']}) |")
+                  + (f" {st.get('ff', '--')} | {st.get('mul', '--')} | {st.get('logic', '--')} |" if stats else "") + f" {p['job']} {p['eval']} ({p['run']}) |")
     tex += ["\\bottomrule", "\\end{tabular}"]
     A.write(out, "table_alpha_dial", tex, md)
     print(f"pool: {len(pts)} distinct valid designs from {len({p['run'] for p in pts})} run(s); {len(regimes)} regime(s)")

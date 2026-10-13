@@ -188,3 +188,14 @@ def test_energy_cells_pick_the_winner_by_their_objective(data_root, capsys):
     cells = A.cells_for(["energy_objectives"], hdl="spire", objectives=("earp1",))
     assert cells[("matmul", "task", "earp1")]["winner"]["run"] == "en_c"
     assert "selecting the winner by ARP" in capsys.readouterr().out
+
+
+def test_alpha_dial_pool_excludes_energy_objective_designs(data_root):
+    s = START["matmul_spire"]
+    stdout = "TB_READS total=4096\nTB_WRITES total=256\nTB_SUMMARY total=1 errors=0\nPASS\n"
+    ev = [(True, dict(area=500.0, delay=500.0, cycles=10000.0), stdout)]
+    write_run("eo_1", "energy_objectives", {"matmul_spire_task_earp1": dict(metrics=scaled(s, 0.5), evals=ev),
+                                            "matmul_spire_task_marp1": dict(metrics=scaled(s, 0.5), evals=[(True, dict(area=700.0, delay=500.0, cycles=10000.0), stdout)])},
+              validation={"matmul_spire_task_earp1": dict(status="pass"), "matmul_spire_task_marp1": dict(status="pass")})
+    _, pts = alpha_dial.pool(["energy_objectives"])
+    assert [p["job"] for p in pts] == ["matmul_spire_task_marp1"]
